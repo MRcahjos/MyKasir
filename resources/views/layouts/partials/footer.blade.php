@@ -1,0 +1,1 @@
+<footer class="app-footer"><span><strong>mykasir</strong> <span class="footer-dot">·</span> Teman usaha Anda</span><span class="d-none d-sm-inline">Satu toko. Semua tercatat.</span></footer>
