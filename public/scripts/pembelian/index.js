@@ -7,6 +7,22 @@
         const el = (id) => document.getElementById(id);
         const form = el('purchase-form');
         const modal = new bootstrap.Modal(el('purchase-modal'));
+        const productSelect = $(el('purchase-product')).select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            dropdownParent: $(el('purchase-modal')),
+            placeholder: 'Cari nama atau kode barang...',
+            minimumResultsForSearch: 0,
+            language: { noResults: () => 'Barang tidak ditemukan.' },
+        });
+        productSelect.on('select2:open', function () {
+            const search = el('purchase-modal').querySelector('.select2-search--dropdown .select2-search__field');
+            if (search) {
+                search.placeholder = 'Ketik nama atau kode barang...';
+                search.setAttribute('aria-label', 'Cari nama atau kode barang');
+                search.focus();
+            }
+        });
         const request = App.transactionRequest('purchases', page);
         const state = { products: [], items: [], saving: false, opening: false };
         const cents = (value) => Math.round((Number(value) || 0) * 100);
@@ -57,6 +73,7 @@
                 el('purchase-date').value = App.today();
                 el('purchase-supplier').innerHTML = '<option value="">Pilih supplier</option>' + (response.data.suppliers || []).map((item) => `<option value="${Number(item.id)}">${App.escape(item.name)}</option>`).join('');
                 el('purchase-product').innerHTML = '<option value="">Pilih barang dari katalog</option>' + state.products.map((item) => `<option value="${Number(item.id)}">${App.escape(item.name)} · ${App.escape(item.sku)}</option>`).join('');
+                productSelect.val('').trigger('change.select2');
                 renderItems(); modal.show();
                 if (!state.products.length || !response.data.suppliers?.length) validation('Tambahkan data barang dan supplier terlebih dahulu sebelum mencatat pembelian.');
             } finally { state.opening = false; App.busy(el('purchase-new'), false); }
@@ -70,7 +87,7 @@
             const existing = state.items.find((item) => String(item.product_id) === String(product.id) && String(item.unit_id) === String(unit.id));
             if (existing) existing.quantity += 1;
             else state.items.push({ product_id: product.id, unit_id: unit.id, quantity: 1, unit_price: cents(Number(product.average_cost || 0) * Number(unit.multiplier)) / 100 });
-            el('purchase-product').value = ''; validation(''); renderItems();
+            productSelect.val('').trigger('change.select2'); validation(''); renderItems();
         }
 
         function detailHtml(purchase) {
@@ -89,7 +106,10 @@
         el('purchase-from').addEventListener('change', reloadWithDates);
         el('purchase-to').addEventListener('change', reloadWithDates);
         el('purchase-reset').addEventListener('click', () => { el('purchase-from').value = ''; el('purchase-to').value = ''; table.ajax.reload(); });
-        el('purchase-modal').addEventListener('hide.bs.modal', (event) => { if (state.saving) event.preventDefault(); });
+        el('purchase-modal').addEventListener('hide.bs.modal', (event) => {
+            if (state.saving) event.preventDefault();
+            else productSelect.select2('close');
+        });
         el('purchase-items').addEventListener('click', (event) => {
             const button = event.target.closest('[data-remove]');
             if (!button || state.saving) return;
