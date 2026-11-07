@@ -27,3 +27,75 @@ Object.assign(window.App, {
         form.querySelector('.is-invalid')?.focus();
     }
 });
+
+(function () {
+    // Display values use Indonesian punctuation; API values always use a decimal dot.
+    const group = value => value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const display = value => {
+        const original = String(value ?? '').trim();
+        if (!original) return '';
+        if (!/^-?(?:[\d.]+(?:,\d*)?|,\d*)$/.test(original)) return original;
+        const compact = original.replace(/\./g, '');
+        if (!/^-?(?:\d+(?:,\d*)?|,\d*)$/.test(compact)) return original;
+        const negative = compact.startsWith('-');
+        const [integer, fraction] = compact.replace(/^-/, '').split(',');
+        return (negative ? '-' : '') + group(integer || '0') + (fraction === undefined ? '' : ',' + fraction);
+    };
+    const raw = value => {
+        const original = String(value ?? '').trim();
+        if (!original) return '';
+        if (!/^-?(?:[\d.]+(?:,\d*)?|,\d*)$/.test(original)) return 'NaN';
+        const compact = original.replace(/\./g, '');
+        if (!/^-?(?:\d+(?:,\d{0,2})?|,\d{1,2})$/.test(compact)) return 'NaN';
+        return compact.replace(/^(-?),/, (_, sign) => `${sign}0,`).replace(',', '.');
+    };
+    Object.assign(window.App, {
+        moneyInputValue(value) {
+            if (value === null || value === undefined || value === '') return '';
+            const canonical = String(value);
+            if (!/^-?\d+(?:\.\d*)?$/.test(canonical)) return canonical;
+            const [integer, fraction] = canonical.split('.');
+            return group(integer) + (fraction && !/^0+$/.test(fraction) ? ',' + fraction : '');
+        },
+        moneyInputRaw: raw,
+        bindMoneyInput(input, { min = 0, max = 999999999999.99 } = {}) {
+            input.inputMode = 'decimal';
+            const refresh = event => {
+                if (event?.isComposing) return;
+                const previous = input.value;
+                const start = input.selectionStart;
+                const end = input.selectionEnd;
+                const formatted = display(previous);
+                if (formatted !== previous) {
+                    const position = offset => {
+                        let count = previous.slice(0, offset).replace(/\./g, '').length;
+                        // A leading decimal comma inserts an integer zero before the caret.
+                        const leadingComma = previous.match(/^(-?),/);
+                        if (leadingComma && offset > leadingComma[1].length) count++;
+                        let index = 0, seen = 0;
+                        while (index < formatted.length && seen < count) {
+                            if (formatted[index] !== '.') seen++;
+                            index++;
+                        }
+                        // Delete should move past a regenerated separator instead of getting stuck.
+                        if (event?.inputType === 'deleteContentForward' && formatted[index] === '.') index++;
+                        return index;
+                    };
+                    input.value = formatted;
+                    if (start !== null && end !== null) input.setSelectionRange(position(start), position(end));
+                }
+                const value = raw(input.value);
+                const amount = Number(value);
+                let message = '';
+                if (value && !Number.isFinite(amount)) message = 'Gunakan angka dengan maksimal dua desimal setelah koma.';
+                else if (value && amount < min) message = `Nominal minimal ${window.App.number(min)}.`;
+                else if (value && amount > max) message = `Nominal maksimal ${window.App.number(max)}.`;
+                input.setCustomValidity(message);
+            };
+            input.addEventListener('input', refresh);
+            input.addEventListener('compositionend', refresh);
+            refresh();
+            return refresh;
+        },
+    });
+})();

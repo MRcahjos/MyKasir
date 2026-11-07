@@ -16,7 +16,7 @@
         const total = () => state.cart.reduce((sum, line) => sum + cents(unitFor(line)?.selling_price) * Number(line.quantity), 0) / 100;
         const customer = () => state.customers.find((item) => String(item.id) === el('pos-customer').value);
         const customerDebt = () => Number(customer()?.outstanding || 0);
-        const roundText = (value) => Number(value).toFixed(2).replace(/\.00$/, '');
+        const refreshReceived = App.bindMoneyInput(el('pos-received'));
         const methodName = (method) => ({ cash: 'Tunai', transfer: 'Transfer', qris: 'QRIS' }[method] || method || '—');
 
         function showValidation(message) {
@@ -81,13 +81,16 @@
             const sum = total();
             const status = el('pos-payment-status').value;
             const cash = el('pos-method').value === 'cash';
-            if (!state.paymentEdited && status === 'paid') el('pos-received').value = roundText(sum);
-            if (status === 'unpaid') el('pos-received').value = '0';
+            if (!state.paymentEdited && status === 'paid') {
+                el('pos-received').value = App.moneyInputValue(sum);
+                refreshReceived();
+            }
+            if (status === 'unpaid') { el('pos-received').value = '0'; refreshReceived(); }
             el('pos-total').textContent = App.money(sum);
             el('pos-received-wrap').classList.toggle('d-none', status === 'unpaid');
             el('pos-cash-shortcuts').classList.toggle('d-none', !cash || status !== 'paid');
             el('pos-method').disabled = status === 'unpaid' || state.saving;
-            const received = amount(el('pos-received').value);
+            const received = amount(App.moneyInputRaw(el('pos-received').value));
             const balance = Math.max(0, amount(sum - received));
             el('pos-difference-label').textContent = balance > 0 || status !== 'paid' ? 'Sisa utang' : 'Kembalian';
             el('pos-difference').textContent = App.money(balance > 0 ? balance : Math.max(0, amount(received - sum)));
@@ -156,10 +159,11 @@
                 if (requestedBase(line.product_id) > Number(product.stock)) return `Stok ${product.name} tidak cukup. Tersedia ${App.number(product.stock)} ${product.base_unit}.`;
             }
             const sum = cents(total());
-            const receivedRaw = Number(el('pos-received').value);
+            refreshReceived();
+            const receivedRaw = Number(App.moneyInputRaw(el('pos-received').value));
             const received = cents(receivedRaw);
             const status = el('pos-payment-status').value;
-            if (!Number.isFinite(receivedRaw) || receivedRaw < 0) return 'Masukkan jumlah pembayaran yang valid.';
+            if (!el('pos-received').checkValidity() || !Number.isFinite(receivedRaw) || receivedRaw < 0) return 'Masukkan jumlah pembayaran yang valid, maksimal dua angka di belakang koma.';
             if (status === 'paid' && received < sum) return 'Uang diterima belum mencukupi. Pilih Bayar sebagian jika sisanya akan diutang.';
             if (status === 'partial' && (received <= 0 || received >= sum)) return 'Pembayaran sebagian harus lebih dari nol dan kurang dari total belanja.';
             if (status !== 'paid' && !el('pos-customer').value) return 'Pilih pelanggan untuk mencatat utang.';
@@ -195,7 +199,7 @@
         el('pos-customer').addEventListener('change', updateCustomer);
         el('pos-payment-status').addEventListener('change', () => {
             state.paymentEdited = false;
-            if (el('pos-payment-status').value === 'partial') { el('pos-received').value = ''; state.paymentEdited = true; }
+            if (el('pos-payment-status').value === 'partial') { el('pos-received').value = ''; refreshReceived(); state.paymentEdited = true; }
             showValidation('');
             updatePayment();
         });
@@ -208,7 +212,8 @@
             const button = event.target.closest('[data-cash]');
             if (!button || state.saving) return;
             state.paymentEdited = button.dataset.cash !== 'exact';
-            el('pos-received').value = roundText(button.dataset.cash === 'exact' ? total() : Number(button.dataset.cash));
+            el('pos-received').value = App.moneyInputValue(button.dataset.cash === 'exact' ? total() : Number(button.dataset.cash));
+            refreshReceived();
             updatePayment();
         });
         el('pos-products').addEventListener('click', (event) => {
@@ -264,7 +269,7 @@
             const message = validate();
             showValidation(message);
             if (message) return;
-            const payload = { customer_id: el('pos-customer').value ? Number(el('pos-customer').value) : null, date: el('pos-date').value, items: state.cart.map((line) => ({ product_id: Number(line.product_id), unit_id: Number(line.unit_id), quantity: Number(line.quantity), expected_unit_price: amount(unitFor(line).selling_price) })), received_amount: amount(el('pos-received').value), payment_method: el('pos-method').value, notes: el('pos-notes').value.trim() || null };
+            const payload = { customer_id: el('pos-customer').value ? Number(el('pos-customer').value) : null, date: el('pos-date').value, items: state.cart.map((line) => ({ product_id: Number(line.product_id), unit_id: Number(line.unit_id), quantity: Number(line.quantity), expected_unit_price: amount(unitFor(line).selling_price) })), received_amount: amount(App.moneyInputRaw(el('pos-received').value)), payment_method: el('pos-method').value, notes: el('pos-notes').value.trim() || null };
             const receiptItems = state.cart.map((line) => ({ product_name: productById(line.product_id).name, unit_name: unitFor(line).name, unit_price: unitFor(line).selling_price, quantity: line.quantity, subtotal: cents(unitFor(line).selling_price) * line.quantity / 100 }));
             const receiptCustomer = customer();
             setSaving(true);

@@ -12,5 +12,5 @@ Route::middleware('auth')->group(function () {
     foreach (['dashboard', 'barang', 'supplier', 'pelanggan', 'pembelian', 'kasir', 'penjualan', 'piutang', 'stok', 'pengeluaran', 'laporan'] as $page) {
         Route::view('/'.$page, $page.'.index')->name($page);
     }
-    require __DIR__.'/pos.php';
+    Route::prefix('ajax')->name('ajax.')->group(__DIR__.'/pos.php');
 });

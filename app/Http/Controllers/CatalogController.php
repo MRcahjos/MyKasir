@@ -69,7 +69,7 @@ class CatalogController extends Controller
     private function productData(Request $request, ?Product $product = null): array
     {
         return $request->validate([
-            'sku' => ['required', 'string', 'max:64', Rule::unique('products', 'sku')->ignore($product?->id)],
+            'sku' => [$product ? 'required' : 'nullable', 'string', 'max:64', Rule::unique('products', 'sku')->ignore($product?->id)],
             'name' => ['required', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:100'],
             'base_unit' => ['required', 'string', 'max:40'],

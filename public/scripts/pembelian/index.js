@@ -52,8 +52,9 @@
             else el('purchase-items').innerHTML = state.items.map((line, index) => {
                 const product = productById(line.product_id);
                 const unit = unitFor(line);
-                return `<tr data-index="${index}"><td><strong>${App.escape(product.name)}</strong><div class="transaction-microcopy">${App.escape(product.sku)} · +${App.number(Number(line.quantity) * Number(unit.multiplier))} ${App.escape(product.base_unit)}</div></td><td><select class="form-select form-select-sm" data-field="unit_id" aria-label="Satuan ${App.escape(product.name)}">${product.units.map((item) => `<option value="${Number(item.id)}" ${String(item.id) === String(line.unit_id) ? 'selected' : ''}>${App.escape(item.name)}${Number(item.multiplier) > 1 ? ` (isi ${App.number(item.multiplier)})` : ''}</option>`).join('')}</select></td><td><input class="form-control form-control-sm" type="number" min="1" max="1000000" step="1" data-field="quantity" value="${Number(line.quantity)}" aria-label="Jumlah ${App.escape(product.name)}"></td><td><div class="input-group input-group-sm"><span class="input-group-text">Rp</span><input class="form-control" type="number" min="0.01" step="0.01" data-field="unit_price" value="${Number(line.unit_price)}" aria-label="Harga beli per ${App.escape(unit.name)}"></div></td><td class="text-end fw-semibold text-nowrap" data-subtotal>${App.money(cents(line.unit_price) * Number(line.quantity) / 100)}</td><td><button type="button" class="cart-remove" data-remove="${index}" aria-label="Hapus ${App.escape(product.name)}"><i class="bi bi-trash3"></i></button></td></tr>`;
+                return `<tr data-index="${index}"><td><strong>${App.escape(product.name)}</strong><div class="transaction-microcopy">${App.escape(product.sku)} · +${App.number(Number(line.quantity) * Number(unit.multiplier))} ${App.escape(product.base_unit)}</div></td><td><select class="form-select form-select-sm" data-field="unit_id" aria-label="Satuan ${App.escape(product.name)}">${product.units.map((item) => `<option value="${Number(item.id)}" ${String(item.id) === String(line.unit_id) ? 'selected' : ''}>${App.escape(item.name)}${Number(item.multiplier) > 1 ? ` (isi ${App.number(item.multiplier)})` : ''}</option>`).join('')}</select></td><td><input class="form-control form-control-sm" type="number" min="1" max="1000000" step="1" data-field="quantity" value="${Number(line.quantity)}" aria-label="Jumlah ${App.escape(product.name)}"></td><td><div class="input-group input-group-sm"><span class="input-group-text">Rp</span><input class="form-control" type="text" inputmode="decimal" autocomplete="off" required data-field="unit_price" value="${App.escape(App.moneyInputValue(line.unit_price))}" aria-label="Harga beli per ${App.escape(unit.name)}"></div></td><td class="text-end fw-semibold text-nowrap" data-subtotal>${App.money(cents(line.unit_price) * Number(line.quantity) / 100)}</td><td><button type="button" class="cart-remove" data-remove="${index}" aria-label="Hapus ${App.escape(product.name)}"><i class="bi bi-trash3"></i></button></td></tr>`;
             }).join('');
+            el('purchase-items').querySelectorAll('[data-field="unit_price"]').forEach((input) => App.bindMoneyInput(input, { min: 0.01 }));
             el('purchase-total').textContent = App.money(total());
         }
 
@@ -126,7 +127,7 @@
                 line.unit_price = cents(Number(line.unit_price) / oldMultiplier * Number(unitFor(line).multiplier)) / 100;
                 renderItems();
             } else {
-                line[field] = input.value === '' ? 0 : Number(input.value);
+                line[field] = Number(field === 'unit_price' ? App.moneyInputRaw(input.value) : input.value);
                 if (field === 'quantity') renderItems();
                 else {
                     input.closest('tr').querySelector('[data-subtotal]').textContent = App.money(cents(line.unit_price) * Number(line.quantity) / 100);
@@ -139,7 +140,7 @@
             const input = event.target.closest('[data-field="unit_price"], [data-field="quantity"]');
             if (!input || state.saving) return;
             const line = state.items[Number(input.closest('[data-index]').dataset.index)];
-            line[input.dataset.field] = Number(input.value) || 0;
+            line[input.dataset.field] = Number(input.dataset.field === 'unit_price' ? App.moneyInputRaw(input.value) : input.value);
             input.closest('tr').querySelector('[data-subtotal]').textContent = App.money(cents(line.unit_price) * Number(line.quantity) / 100);
             el('purchase-total').textContent = App.money(total());
         });
@@ -161,7 +162,7 @@
             else if (state.items.length > 100) message = 'Satu pembelian maksimal berisi 100 baris barang.';
             else if (state.items.some((item) => !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || Number(item.quantity) > 1000000)) message = 'Jumlah barang harus berupa bilangan bulat antara 1 dan 1.000.000.';
             else if (state.items.some((item) => !Number.isFinite(Number(item.unit_price)) || Number(item.unit_price) <= 0)) message = 'Isi harga beli setiap barang, lebih dari nol.';
-            validation(message); if (message) return;
+            validation(message); if (message || !form.reportValidity()) return;
             state.saving = true;
             try {
                 if (!await App.confirm('Simpan pembelian ini?', `Total ${App.money(total())}. Barang dinyatakan sudah diterima dan dibayar lunas. Stok akan bertambah.`)) return;

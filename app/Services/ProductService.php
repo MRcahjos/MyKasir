@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\PurchaseItem;
 use App\Models\SaleItem;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -14,7 +15,7 @@ class ProductService
     public function save(array $data, ?Product $product = null): Product
     {
         $data = Operation::validate($data, [
-            'sku' => ['required', 'string', 'max:80', Rule::unique('products')->ignore($product?->id)],
+            'sku' => [$product ? 'required' : 'nullable', 'string', 'max:80', Rule::unique('products')->ignore($product?->id)],
             'name' => ['required', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:100'],
             'base_unit' => ['required', 'string', 'max:40'],
@@ -29,6 +30,9 @@ class ProductService
         $base = array_filter($data['units'], fn ($unit) => (int) $unit['multiplier'] === 1 && $unit['name'] === $data['base_unit']);
         if (count($base) !== 1 || count(array_filter($data['units'], fn ($unit) => (int) $unit['multiplier'] === 1)) !== 1) {
             throw ValidationException::withMessages(['units' => 'Harus ada tepat satu satuan dasar dengan isi 1 dan nama sesuai satuan terkecil.']);
+        }
+        if (! $product && blank($data['sku'] ?? null)) {
+            $data['sku'] = $this->generateSku();
         }
 
         return DB::transaction(function () use ($data, $product) {
@@ -72,5 +76,14 @@ class ProductService
 
             return $product->load('units');
         }, 3);
+    }
+
+    private function generateSku(): string
+    {
+        do {
+            $sku = 'BRG-'.now()->format('ymd').'-'.Str::upper(Str::random(6));
+        } while (Product::where('sku', $sku)->exists());
+
+        return $sku;
     }
 }

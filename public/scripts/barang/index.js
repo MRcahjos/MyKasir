@@ -38,8 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
         row.dataset.base = isBase ? 'true' : 'false';
         if (unit.id) row.dataset.id = unit.id;
         const locked = Boolean(unit.id) && conversionLocked;
-        row.innerHTML = `<div class="catalog-unit-head"><strong>${isBase ? '<i class="bi bi-dot me-1"></i>Satuan terkecil' : '<i class="bi bi-box-seam me-1"></i>Satuan kemasan'}</strong>${isBase ? '<span class="badge badge-soft-success">Dasar</span>' : locked ? '<span class="badge badge-soft-neutral"><i class="bi bi-lock me-1"></i>Isi tetap</span>' : '<button class="btn btn-sm btn-light unit-remove" type="button" aria-label="Hapus satuan kemasan"><i class="bi bi-trash3"></i></button>'}</div><div class="catalog-unit-grid"><div><label class="form-label" for="unit-name-${key}">Nama satuan</label><input class="form-control" id="unit-name-${key}" data-field="name" maxlength="40" required value="${text(unit.name || '')}" ${isBase ? 'readonly' : ''} placeholder="Dus"></div><div><label class="form-label" for="unit-multiplier-${key}">Isi satuan dasar</label><input type="number" class="form-control" id="unit-multiplier-${key}" data-field="multiplier" min="${isBase ? 1 : 2}" max="1000000" step="1" required value="${text(unit.multiplier || (isBase ? 1 : ''))}" ${isBase || locked ? 'readonly' : ''} placeholder="20"></div><div><label class="form-label" for="unit-price-${key}">Harga jual (Rp)</label><input type="number" class="form-control" id="unit-price-${key}" data-field="selling_price" min="0.01" max="999999999999.99" step="0.01" required value="${text(unit.selling_price ?? '')}" placeholder="17000"></div></div>`;
+        row.innerHTML = `<div class="catalog-unit-head"><strong>${isBase ? '<i class="bi bi-dot me-1"></i>Satuan terkecil' : '<i class="bi bi-box-seam me-1"></i>Satuan kemasan'}</strong>${isBase ? '<span class="badge badge-soft-success">Dasar</span>' : locked ? '<span class="badge badge-soft-neutral"><i class="bi bi-lock me-1"></i>Isi tetap</span>' : '<button class="btn btn-sm btn-light unit-remove" type="button" aria-label="Hapus satuan kemasan"><i class="bi bi-trash3"></i></button>'}</div><div class="catalog-unit-grid"><div><label class="form-label" for="unit-name-${key}">Nama satuan</label><input class="form-control" id="unit-name-${key}" data-field="name" maxlength="40" required value="${text(unit.name || '')}" ${isBase ? 'readonly' : ''} placeholder="Dus"></div><div><label class="form-label" for="unit-multiplier-${key}">Isi satuan dasar</label><input type="number" class="form-control" id="unit-multiplier-${key}" data-field="multiplier" min="${isBase ? 1 : 2}" max="1000000" step="1" required value="${text(unit.multiplier || (isBase ? 1 : ''))}" ${isBase || locked ? 'readonly' : ''} placeholder="20"></div><div><label class="form-label" for="unit-price-${key}">Harga jual (Rp)</label><input type="text" class="form-control" id="unit-price-${key}" data-field="selling_price" inputmode="decimal" autocomplete="off" required value="${text(App.moneyInputValue(unit.selling_price ?? ''))}" placeholder="17.000"></div></div>`;
         unitList.append(row);
+        App.bindMoneyInput(row.querySelector('[data-field="selling_price"]'), { min: 0.01 });
         renumber();
     }
     function openForm(product = null) {
@@ -49,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
         conversionLocked = Boolean(product?.conversion_locked || product?.movements_exists || Number(product?.stock || 0) !== 0);
         document.getElementById('product-modal-title').textContent = product ? 'Edit barang' : 'Tambah barang';
         ['name', 'sku', 'category', 'base_unit', 'minimum_stock'].forEach(name => form.elements[name].value = product?.[name] ?? (name === 'minimum_stock' ? '0' : ''));
+        form.elements.sku.required = Boolean(product);
+        form.elements.sku.placeholder = product ? 'Contoh: CUP-22' : 'Otomatis saat disimpan';
+        document.getElementById('product-sku-hint').textContent = product ? 'Kode harus unik untuk setiap barang.' : 'Kosongkan untuk kode otomatis, atau isi kode sendiri.';
         form.elements.active.checked = product ? Boolean(product.active) : true;
         form.elements.base_unit.readOnly = conversionLocked;
         document.getElementById('product-conversion-note').textContent = conversionLocked ? 'Isi satuan dan satuan terkecil terkunci karena sudah ada riwayat stok. Anda tetap bisa mengubah harga jual atau menambah satuan baru.' : 'Isi kemasan yang sudah memiliki stok atau riwayat transaksi tidak dapat diubah. Harga jual tetap bisa diperbarui.';
@@ -74,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saving || !form.reportValidity()) return;
         const data = Object.fromEntries(new FormData(form));
         const payload = { sku: data.sku.trim(), name: data.name.trim(), category: data.category.trim() || null, base_unit: data.base_unit.trim(), minimum_stock: Number(data.minimum_stock), active: form.elements.active.checked,
-            units: Array.from(unitList.children).map(row => ({ ...(row.dataset.id ? { id: Number(row.dataset.id) } : {}), name: row.querySelector('[data-field="name"]').value.trim(), multiplier: Number(row.querySelector('[data-field="multiplier"]').value), selling_price: row.querySelector('[data-field="selling_price"]').value })) };
+            units: Array.from(unitList.children).map(row => ({ ...(row.dataset.id ? { id: Number(row.dataset.id) } : {}), name: row.querySelector('[data-field="name"]').value.trim(), multiplier: Number(row.querySelector('[data-field="multiplier"]').value), selling_price: App.moneyInputRaw(row.querySelector('[data-field="selling_price"]').value) })) };
         saving = true;
         const button = document.getElementById('product-submit');
         App.busy(button, true);

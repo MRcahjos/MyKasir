@@ -1,6 +1,6 @@
 # MyKasir implementation contract
 
-Local Laravel 13 + AdminLTE 4. Indonesian UI. Custom JS under public/scripts grouped by view. All mutations AJAX JSON, DataTables server-side for lists, SweetAlert2 confirmations/feedback. No automated production demo data. Business services are reusable by a future mobile API; token authentication and mobile API routes are not part of this implementation.
+Local Laravel 13 + AdminLTE 4. Indonesian UI. Custom JS under public/scripts grouped by view. Web mutations use AJAX JSON, DataTables server-side for lists, SweetAlert2 confirmations/feedback. No automated production demo data. The versioned `/api/v1` API uses Sanctum Bearer tokens and shares POS controllers and business services with `/ajax`. See [API documentation](api.md) for authentication and endpoint contracts.
 
 ## Domain schema and service interface
 
@@ -38,7 +38,7 @@ routes/web.php requires routes/pos.php inside the auth group. AJAX endpoints use
 - POST /ajax/receivables/{sale}/payments -> {amount,date,method,notes,request_id}
 - POST /ajax/stock-adjustments -> {product_id,quantity signed,unit_cost required for additions,notes,date,request_id}; request_id is required by the HTTP endpoint and protects against duplicate posting.
 
-Product input: sku,name,category,base_unit,minimum_stock,active,units:[{id optional,name,multiplier,selling_price}]. No direct stock editing. Product creation starts zero stock; record purchase or adjustment.
+Product input: sku,name,category,base_unit,minimum_stock,active,units:[{id optional,name,multiplier,selling_price}]. On creation, omitted/blank sku generates a unique BRG-<ymd>-<6 uppercase alphanumeric> code; manual codes remain supported. Updates require sku. No direct stock editing. Product creation starts zero stock; record purchase or adjustment.
 
 ## Page URLs and shared frontend API
 

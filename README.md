@@ -63,13 +63,18 @@ public/css/app.css       Tampilan aplikasi
 public/assets/           AdminLTE dan pustaka frontend lokal
 app/Http/Controllers/    Permintaan HTTP dan respons JSON
 app/Services/            Aturan bisnis, transaksi, stok, piutang, dan laporan
-routes/pos.php           Endpoint AJAX dengan sesi login dan CSRF
+routes/pos.php           Route fitur bersama untuk AJAX dan API
+routes/api.php           API v1 dengan autentikasi token Sanctum
 tests/Feature/           Pengujian alur bisnis, HTTP, dan akses halaman
 ```
 
 JavaScript dikelompokkan mengikuti nama view dan dimuat per halaman. Aturan harga, stok, konversi satuan, dan kelayakan berutang diperiksa kembali oleh backend. Service menggunakan transaksi database dan menyimpan nilai uang dengan perhitungan desimal.
 
-Service disiapkan agar dapat dipakai kembali oleh controller API aplikasi mobile. **API mobile dengan versi endpoint dan autentikasi token belum dibuat**; endpoint `/ajax` saat ini menggunakan autentikasi sesi web dan CSRF.
+API tersedia di **`/api/v1`** dengan autentikasi Bearer token Laravel Sanctum. API menggunakan controller dan service yang sama dengan endpoint `/ajax`, sehingga aturan bisnis dan format data tetap konsisten. Endpoint `/ajax` menggunakan sesi web dan CSRF.
+
+Setelah memperbarui kode, jalankan `composer install` dan `php artisan migrate` untuk membuat tabel token (launcher juga menjalankan migrasi). Buat akun pemilik melalui halaman web, lalu gunakan `POST /api/v1/login` dengan `email`, `password`, dan `device_name`. Kirim token dari `access_token` melalui header `Authorization: Bearer <token>` pada permintaan berikutnya. Token berlaku 30 hari; `POST /api/v1/logout` mencabut token perangkat yang digunakan.
+
+Daftar endpoint, contoh payload, pagination, dan kode respons tersedia di [Dokumentasi API](docs/api.md).
 
 ## Pengujian
 
@@ -95,4 +100,4 @@ Jangan menggunakan `migrate:fresh`, `db:wipe`, atau menghapus berkas database pa
 
 ## Batas versi ini
 
-Pembelian langsung diterima dan lunas; belum ada draf pembelian atau utang supplier. Retur, pembatalan transaksi yang sudah tersimpan, diskon, beberapa cabang, pembagian peran kasir, dan API mobile belum tersedia. Pembayaran transfer/QRIS dicatat manual, belum terhubung ke penyedia pembayaran. Jumlah barang menggunakan bilangan bulat; barang timbang dengan jumlah pecahan belum didukung.
+Pembelian langsung diterima dan lunas; belum ada draf pembelian atau utang supplier. Retur, pembatalan transaksi yang sudah tersimpan, diskon, beberapa cabang, dan pembagian peran kasir belum tersedia. Pembayaran transfer/QRIS dicatat manual, belum terhubung ke penyedia pembayaran. Jumlah barang menggunakan bilangan bulat; barang timbang dengan jumlah pecahan belum didukung.
